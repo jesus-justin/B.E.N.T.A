@@ -4,7 +4,7 @@
  * Business Expense and Net Transaction Analyzer
  */
 
-require_once '../config/db.php';
+require_once 'config/db.php';
 
 class Functions {
     private $db;

@@ -9,7 +9,7 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST');
 header('Access-Control-Allow-Headers: Content-Type');
 
-require_once '../includes/auth.php';
+require_once 'includes/auth.php';
 
 $auth = new Auth();
 $method = $_SERVER['REQUEST_METHOD'];

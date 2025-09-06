@@ -7,7 +7,7 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 
-require_once '../includes/auth.php';
+require_once 'includes/auth.php';
 
 $auth = new Auth();
 
