@@ -3,6 +3,9 @@
 
 // Global variables
 let currentUser = null;
+let csrfToken = null;
+
+
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {

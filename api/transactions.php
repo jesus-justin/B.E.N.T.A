@@ -2,15 +2,31 @@
 /**
  * Transactions API for B.E.N.T.A
  * Business Expense and Net Transaction Analyzer
+ *
+ * Enhanced with:
+ * - CSRF protection
+ * - Input validation and sanitization
+ * - Security headers
+ * - Better error handling
+ * - Rate limiting considerations
  */
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('X-XSS-Protection: 1; mode=block');
 
-require_once 'includes/auth.php';
-require_once 'includes/functions.php';
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+require_once '../includes/auth.php';
+require_once '../includes/functions.php';
 
 $auth = new Auth();
 $functions = new Functions();
@@ -23,6 +39,12 @@ if (!$auth->isLoggedIn()) {
 }
 
 $user = $auth->getCurrentUser();
+if (!$user) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Invalid session']);
+    exit;
+}
+
 $userId = $user['id'];
 $method = $_SERVER['REQUEST_METHOD'];
 

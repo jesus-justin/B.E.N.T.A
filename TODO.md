@@ -38,7 +38,8 @@
 ## Code Fixes and Enhancements
 - [x] Enhance security and input validation in includes/auth.php
 - [x] Fix database schema inconsistencies (README vs config)
-- [ ] Improve error handling and user feedback in API endpoints
+- [x] Improve error handling and user feedback in API endpoints (login.php, register.php, transactions.php)
+- [ ] Improve error handling in remaining API endpoints (categories.php, reports.php, settings.php)
 - [ ] Refactor and optimize database queries for performance
 - [ ] Review and enhance frontend JavaScript validation
 - [ ] Add comprehensive comments and documentation
