@@ -22,6 +22,12 @@ function initializeApp() {
     // Initialize form validations
     initializeFormValidations();
 
+    // Initialize enhanced validations and CSRF
+    initializeEnhancedValidations();
+
+    // Initialize amount formatting
+    initializeAmountFormatting();
+
     // Initialize responsive navigation
     initializeResponsiveNav();
 }
@@ -90,33 +96,66 @@ function validateField(field) {
         errorMessage = 'This field is required';
     }
 
-    // Email validation
-    if (field.type === 'email' && value) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(value)) {
-            isValid = false;
-            errorMessage = 'Please enter a valid email address';
-        }
+    // Skip further validation if field is empty and not required
+    if (!value && !field.hasAttribute('required')) {
+        clearFieldError(field);
+        return true;
     }
 
-    // Password validation
-    if (field.type === 'password' && field.name === 'password' && value) {
-        if (value.length < 8) {
-            isValid = false;
-            errorMessage = 'Password must be at least 8 characters long';
-        } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(value)) {
-            isValid = false;
-            errorMessage = 'Password must contain uppercase, lowercase, and number';
-        }
+    // Enhanced validation based on field type and name
+    switch (field.type) {
+        case 'email':
+            isValid = validateEmail(value);
+            errorMessage = isValid ? '' : 'Please enter a valid email address';
+            break;
+
+        case 'password':
+            if (field.name === 'password') {
+                isValid = validatePassword(value);
+                errorMessage = isValid ? '' : getPasswordErrorMessage(value);
+            } else if (field.name === 'confirm_password') {
+                isValid = validateConfirmPassword(value, field);
+                errorMessage = isValid ? '' : 'Passwords do not match';
+            }
+            break;
+
+        case 'text':
+        case 'textarea':
+            if (field.name === 'username') {
+                isValid = validateUsername(value);
+                errorMessage = isValid ? '' : 'Username must be 3-50 characters, alphanumeric only';
+            } else if (field.name === 'description') {
+                isValid = validateDescription(value);
+                errorMessage = isValid ? '' : 'Description must be less than 1000 characters';
+            }
+            break;
+
+        case 'number':
+        case 'date':
+            if (field.name === 'amount') {
+                isValid = validateAmount(value);
+                errorMessage = isValid ? '' : 'Please enter a valid positive amount (max 999999.99)';
+            } else if (field.name === 'date' || field.type === 'date') {
+                isValid = validateDate(value);
+                errorMessage = isValid ? '' : 'Please enter a valid date';
+            }
+            break;
+
+        case 'tel':
+            isValid = validatePhone(value);
+            errorMessage = isValid ? '' : 'Please enter a valid phone number';
+            break;
+
+        case 'url':
+            isValid = validateURL(value);
+            errorMessage = isValid ? '' : 'Please enter a valid URL';
+            break;
     }
 
-    // Number validation
-    if (field.type === 'number' && value) {
-        const numValue = parseFloat(value);
-        if (field.name === 'amount' && (isNaN(numValue) || numValue <= 0)) {
-            isValid = false;
-            errorMessage = 'Please enter a valid positive amount';
-        }
+    // Custom validation for select fields
+    if (field.tagName === 'SELECT' && field.name === 'category_id') {
+        isValid = validateCategorySelection(value);
+        errorMessage = isValid ? '' : 'Please select a valid category';
     }
 
     if (!isValid) {
@@ -126,6 +165,218 @@ function validateField(field) {
     }
 
     return isValid;
+}
+
+// Enhanced validation functions
+function validateEmail(email) {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(email) && email.length <= 100;
+}
+
+function validatePassword(password) {
+    // At least 8 characters, 1 uppercase, 1 lowercase, 1 number
+    const hasMinLength = password.length >= 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasNoSpaces = !/\s/.test(password);
+    const notCommon = !isCommonPassword(password);
+
+    return hasMinLength && hasUpperCase && hasLowerCase && hasNumbers && hasNoSpaces && notCommon;
+}
+
+function getPasswordErrorMessage(password) {
+    if (password.length < 8) return 'Password must be at least 8 characters long';
+    if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter';
+    if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter';
+    if (!/\d/.test(password)) return 'Password must contain at least one number';
+    if (/\s/.test(password)) return 'Password cannot contain spaces';
+    if (isCommonPassword(password)) return 'Please choose a stronger password';
+    return 'Password does not meet requirements';
+}
+
+function validateConfirmPassword(confirmPassword, field) {
+    const passwordField = document.querySelector('input[name="password"]');
+    return passwordField && confirmPassword === passwordField.value;
+}
+
+function validateUsername(username) {
+    const usernameRegex = /^[a-zA-Z0-9_]{3,50}$/;
+    return usernameRegex.test(username);
+}
+
+function validateDescription(description) {
+    return description.length <= 1000;
+}
+
+function validateAmount(amount) {
+    const numValue = parseFloat(amount);
+    return !isNaN(numValue) && numValue > 0 && numValue <= 999999.99 && /^\d+(\.\d{1,2})?$/.test(amount);
+}
+
+function validateDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const minDate = new Date('2000-01-01');
+
+    return date instanceof Date && !isNaN(date) &&
+           date >= minDate && date <= new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+}
+
+function validatePhone(phone) {
+    const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
+    return phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''));
+}
+
+function validateURL(url) {
+    try {
+        new URL(url);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function validateCategorySelection(categoryId) {
+    return categoryId && categoryId !== '' && !isNaN(categoryId);
+}
+
+function isCommonPassword(password) {
+    const commonPasswords = [
+        'password', '12345678', 'qwerty', 'abc123', 'password123',
+        'admin', 'letmein', 'welcome', 'monkey', 'dragon'
+    ];
+    return commonPasswords.includes(password.toLowerCase());
+}
+
+// CSRF Token Management
+function initializeCSRFToken() {
+    // Try to get CSRF token from meta tag or generate one
+    const metaToken = document.querySelector('meta[name="csrf-token"]');
+    if (metaToken) {
+        csrfToken = metaToken.getAttribute('content');
+    }
+
+    // Add CSRF token to all forms
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        addCSRFTokenToForm(form);
+    });
+}
+
+function addCSRFTokenToForm(form) {
+    // Remove existing CSRF token if present
+    const existingToken = form.querySelector('input[name="csrf_token"]');
+    if (existingToken) {
+        existingToken.remove();
+    }
+
+    // Add new CSRF token
+    const tokenInput = document.createElement('input');
+    tokenInput.type = 'hidden';
+    tokenInput.name = 'csrf_token';
+    tokenInput.value = csrfToken || generateCSRFToken();
+    form.appendChild(tokenInput);
+}
+
+function generateCSRFToken() {
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+}
+
+// Enhanced form submission validation
+function validateFormBeforeSubmit(form) {
+    const inputs = form.querySelectorAll('input, select, textarea');
+    let isFormValid = true;
+    let firstInvalidField = null;
+
+    inputs.forEach(input => {
+        if (!validateField(input)) {
+            isFormValid = false;
+            if (!firstInvalidField) {
+                firstInvalidField = input;
+            }
+        }
+    });
+
+    if (!isFormValid && firstInvalidField) {
+        firstInvalidField.focus();
+        firstInvalidField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    return isFormValid;
+}
+
+// Initialize CSRF and form enhancements
+function initializeEnhancedValidations() {
+    // Initialize CSRF tokens
+    initializeCSRFToken();
+
+    // Add form submission validation
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            if (!validateFormBeforeSubmit(this)) {
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        // Add CSRF token to form
+        addCSRFTokenToForm(form);
+    });
+
+    // Add accessibility improvements
+    addAccessibilityImprovements();
+}
+
+function addAccessibilityImprovements() {
+    // Add ARIA labels to error messages
+    const errorMessages = document.querySelectorAll('.field-error');
+    errorMessages.forEach(error => {
+        error.setAttribute('role', 'alert');
+        error.setAttribute('aria-live', 'polite');
+    });
+
+    // Add ARIA labels to required fields
+    const requiredFields = document.querySelectorAll('input[required], select[required], textarea[required]');
+    requiredFields.forEach(field => {
+        field.setAttribute('aria-required', 'true');
+        const label = document.querySelector(`label[for="${field.id}"]`);
+        if (label) {
+            label.setAttribute('aria-label', label.textContent + ' (required)');
+        }
+    });
+}
+
+// Enhanced input sanitization
+function sanitizeInput(input) {
+    return input
+        .replace(/[<>'"&]/g, '') // Remove potentially dangerous characters
+        .trim()
+        .substring(0, 1000); // Limit length
+}
+
+// Enhanced number formatting for amounts
+function formatAmountInput(input) {
+    let value = input.value.replace(/[^\d.]/g, '');
+    const parts = value.split('.');
+    if (parts.length > 2) {
+        value = parts[0] + '.' + parts.slice(1).join('');
+    }
+    if (parts[1] && parts[1].length > 2) {
+        value = parts[0] + '.' + parts[1].substring(0, 2);
+    }
+    input.value = value;
+}
+
+// Add amount formatting to number inputs
+function initializeAmountFormatting() {
+    const amountInputs = document.querySelectorAll('input[name="amount"]');
+    amountInputs.forEach(input => {
+        input.addEventListener('input', function() {
+            formatAmountInput(this);
+        });
+    });
 }
 
 function showFieldError(field, message) {
