@@ -1,13 +1,23 @@
-<?php
+ <?php
 /**
  * Categories API for B.E.N.T.A
  * Business Expense and Net Transaction Analyzer
+ *
+ * This API provides CRUD operations for managing transaction categories.
+ * All endpoints require authentication and validate user ownership.
+ *
+ * Security features:
+ * - Authentication required for all endpoints
+ * - CSRF protection for state-changing operations
+ * - Input validation and sanitization
+ * - User ownership validation
+ * - Rate limiting considerations
  */
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
 
 require_once 'includes/auth.php';
 
@@ -16,17 +26,45 @@ $auth = new Auth();
 // Check authentication
 if (!$auth->isLoggedIn()) {
     http_response_code(401);
-    echo json_encode(['success' => false, 'message' => 'Authentication required']);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Authentication required',
+        'error_code' => 'AUTH_REQUIRED'
+    ]);
     exit;
 }
 
 $user = $auth->getCurrentUser();
+if (!$user) {
+    http_response_code(401);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Invalid user session',
+        'error_code' => 'INVALID_SESSION'
+    ]);
+    exit;
+}
+
 $userId = $user['id'];
 $method = $_SERVER['REQUEST_METHOD'];
 
+// Validate CSRF token for state-changing operations
+if (in_array($method, ['POST', 'PUT', 'DELETE'])) {
+    $csrfToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? $_POST['csrf_token'] ?? null;
+    if (!$csrfToken || !$auth->validateCSRFToken($csrfToken)) {
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Invalid security token',
+            'error_code' => 'CSRF_INVALID'
+        ]);
+        exit;
+    }
+}
+
 switch ($method) {
     case 'GET':
-        handleGetCategories($userId);
+        handleGetCategories($userId, $auth);
         break;
     case 'POST':
         handleCreateCategory($userId, $auth);
@@ -35,22 +73,45 @@ switch ($method) {
         handleUpdateCategory($userId, $auth);
         break;
     case 'DELETE':
-        handleDeleteCategory($userId);
+        handleDeleteCategory($userId, $auth);
         break;
     default:
         http_response_code(405);
-        echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+        echo json_encode([
+            'success' => false,
+            'message' => 'HTTP method not allowed',
+            'error_code' => 'METHOD_NOT_ALLOWED',
+            'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE']
+        ]);
         break;
 }
 
-function handleGetCategories($userId) {
+/**
+ * Handle GET request to retrieve user categories
+ *
+ * @param int $userId The authenticated user's ID
+ * @param Auth $auth The authentication instance for logging
+ * @return void Outputs JSON response
+ */
+function handleGetCategories($userId, $auth) {
     try {
         $db = new Database();
         $conn = $db->getConnection();
 
         $type = $_GET['type'] ?? null;
 
-        $query = "SELECT * FROM categories WHERE user_id = ?";
+        // Validate type parameter if provided
+        if ($type && !in_array($type, ['income', 'expense'])) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Invalid category type. Must be income or expense',
+                'error_code' => 'INVALID_TYPE'
+            ]);
+            return;
+        }
+
+        $query = "SELECT id, name, type, created_at FROM categories WHERE user_id = ?";
         $params = [$userId];
 
         if ($type) {
@@ -66,21 +127,29 @@ function handleGetCategories($userId) {
 
         // Get transaction counts for each category
         foreach ($categories as &$category) {
-            $stmt = $conn->prepare("SELECT COUNT(*) as transaction_count FROM transactions WHERE category_id = ?");
-            $stmt->execute([$category['id']]);
+            $stmt = $conn->prepare("SELECT COUNT(*) as transaction_count FROM transactions WHERE category_id = ? AND user_id = ?");
+            $stmt->execute([$category['id'], $userId]);
             $result = $stmt->fetch();
-            $category['transaction_count'] = $result['transaction_count'];
+            $category['transaction_count'] = (int)$result['transaction_count'];
         }
 
         echo json_encode([
             'success' => true,
             'data' => $categories,
-            'count' => count($categories)
+            'count' => count($categories),
+            'message' => 'Categories retrieved successfully'
         ]);
 
     } catch(PDOException $e) {
+        // Log the error for debugging
+        error_log("Database error in handleGetCategories: " . $e->getMessage());
+
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Unable to retrieve categories. Please try again later.',
+            'error_code' => 'DATABASE_ERROR'
+        ]);
     }
 }
 
