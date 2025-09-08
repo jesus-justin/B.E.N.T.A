@@ -1,4 +1,5 @@
- <?php
+
+gi<?php
 /**
  * Categories API for B.E.N.T.A
  * Business Expense and Net Transaction Analyzer
@@ -153,29 +154,68 @@ function handleGetCategories($userId, $auth) {
     }
 }
 
+/**
+ * Handle POST request to create a new category
+ *
+ * @param int $userId The authenticated user's ID
+ * @param Auth $auth The authentication instance for input sanitization
+ * @return void Outputs JSON response
+ */
 function handleCreateCategory($userId, $auth) {
     try {
         $db = new Database();
         $conn = $db->getConnection();
 
+        // Parse input data (support both JSON and form data)
         $input = json_decode(file_get_contents('php://input'), true);
         if (!$input) {
             $input = $_POST;
         }
 
-        $name = $input['name'] ?? '';
-        $type = $input['type'] ?? '';
+        $name = trim($input['name'] ?? '');
+        $type = trim($input['type'] ?? '');
 
-        // Validate input
-        if (empty($name) || empty($type)) {
+        // Validate required fields
+        if (empty($name)) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Name and type are required']);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Category name is required',
+                'error_code' => 'NAME_REQUIRED'
+            ]);
             return;
         }
 
+        if (empty($type)) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Category type is required',
+                'error_code' => 'TYPE_REQUIRED'
+            ]);
+            return;
+        }
+
+        // Validate category type
         if (!in_array($type, ['income', 'expense'])) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Type must be income or expense']);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Category type must be either income or expense',
+                'error_code' => 'INVALID_TYPE',
+                'valid_types' => ['income', 'expense']
+            ]);
+            return;
+        }
+
+        // Validate name length
+        if (strlen($name) > 100) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Category name must be 100 characters or less',
+                'error_code' => 'NAME_TOO_LONG'
+            ]);
             return;
         }
 
@@ -184,8 +224,12 @@ function handleCreateCategory($userId, $auth) {
         $stmt->execute([$name, $userId]);
 
         if ($stmt->rowCount() > 0) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Category name already exists']);
+            http_response_code(409);
+            echo json_encode([
+                'success' => false,
+                'message' => 'A category with this name already exists',
+                'error_code' => 'DUPLICATE_NAME'
+            ]);
             return;
         }
 
@@ -202,57 +246,102 @@ function handleCreateCategory($userId, $auth) {
         echo json_encode([
             'success' => true,
             'message' => 'Category created successfully',
-            'category_id' => $categoryId
+            'data' => [
+                'id' => $categoryId,
+                'name' => $name,
+                'type' => $type
+            ]
         ]);
 
     } catch(PDOException $e) {
+        // Log the error for debugging
+        error_log("Database error in handleCreateCategory: " . $e->getMessage());
+
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Unable to create category. Please try again later.',
+            'error_code' => 'DATABASE_ERROR'
+        ]);
     }
 }
 
+/**
+ * Handle PUT request to update an existing category
+ *
+ * @param int $userId The authenticated user's ID
+ * @param Auth $auth The authentication instance for input sanitization
+ * @return void Outputs JSON response
+ */
 function handleUpdateCategory($userId, $auth) {
     try {
         $db = new Database();
         $conn = $db->getConnection();
 
+        // Parse input data (support both JSON and form data)
         $input = json_decode(file_get_contents('php://input'), true);
         if (!$input) {
             $input = $_POST;
         }
 
-        $categoryId = $input['id'] ?? '';
-        $name = $input['name'] ?? '';
-        $type = $input['type'] ?? '';
+        $categoryId = trim($input['id'] ?? '');
+        $name = trim($input['name'] ?? '');
+        $type = trim($input['type'] ?? '');
 
-        if (empty($categoryId)) {
+        // Validate category ID
+        if (empty($categoryId) || !is_numeric($categoryId)) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Category ID is required']);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Valid category ID is required',
+                'error_code' => 'INVALID_ID'
+            ]);
             return;
         }
 
-        // Check if category belongs to user
-        $stmt = $conn->prepare("SELECT id FROM categories WHERE id = ? AND user_id = ?");
+        // Check if category exists and belongs to user
+        $stmt = $conn->prepare("SELECT id, name, type FROM categories WHERE id = ? AND user_id = ?");
         $stmt->execute([$categoryId, $userId]);
+        $existingCategory = $stmt->fetch();
 
-        if ($stmt->rowCount() == 0) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'Access denied']);
+        if (!$existingCategory) {
+            http_response_code(404);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Category not found or access denied',
+                'error_code' => 'CATEGORY_NOT_FOUND'
+            ]);
             return;
         }
 
-        // Build update query
+        // Build update query dynamically
         $updates = [];
         $params = [];
 
-        if (!empty($name)) {
-            // Check if new name conflicts with existing category
+        // Handle name update
+        if ($name !== '') {
+            // Validate name length
+            if (strlen($name) > 100) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Category name must be 100 characters or less',
+                    'error_code' => 'NAME_TOO_LONG'
+                ]);
+                return;
+            }
+
+            // Check if new name conflicts with existing category (excluding current one)
             $stmt = $conn->prepare("SELECT id FROM categories WHERE name = ? AND user_id = ? AND id != ?");
             $stmt->execute([$name, $userId, $categoryId]);
 
             if ($stmt->rowCount() > 0) {
-                http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'Category name already exists']);
+                http_response_code(409);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'A category with this name already exists',
+                    'error_code' => 'DUPLICATE_NAME'
+                ]);
                 return;
             }
 
@@ -260,86 +349,160 @@ function handleUpdateCategory($userId, $auth) {
             $params[] = $auth->sanitizeInput($name);
         }
 
-        if (!empty($type)) {
+        // Handle type update
+        if ($type !== '') {
             if (!in_array($type, ['income', 'expense'])) {
                 http_response_code(400);
-                echo json_encode(['success' => false, 'message' => 'Type must be income or expense']);
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Category type must be either income or expense',
+                    'error_code' => 'INVALID_TYPE',
+                    'valid_types' => ['income', 'expense']
+                ]);
                 return;
             }
             $updates[] = "type = ?";
             $params[] = $type;
         }
 
+        // Check if any fields are being updated
         if (empty($updates)) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'No fields to update']);
+            echo json_encode([
+                'success' => false,
+                'message' => 'No valid fields provided for update',
+                'error_code' => 'NO_UPDATES'
+            ]);
             return;
         }
 
-        $query = "UPDATE categories SET " . implode(', ', $updates) . " WHERE id = ? AND user_id = ?";
+        // Execute update
+        $query = "UPDATE categories SET " . implode(', ', $updates) . ", updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?";
         $params[] = $categoryId;
         $params[] = $userId;
 
         $stmt = $conn->prepare($query);
         $stmt->execute($params);
 
+        // Get updated category data
+        $stmt = $conn->prepare("SELECT id, name, type, created_at, updated_at FROM categories WHERE id = ?");
+        $stmt->execute([$categoryId]);
+        $updatedCategory = $stmt->fetch();
+
         echo json_encode([
             'success' => true,
-            'message' => 'Category updated successfully'
+            'message' => 'Category updated successfully',
+            'data' => $updatedCategory
         ]);
 
     } catch(PDOException $e) {
+        // Log the error for debugging
+        error_log("Database error in handleUpdateCategory: " . $e->getMessage());
+
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Unable to update category. Please try again later.',
+            'error_code' => 'DATABASE_ERROR'
+        ]);
     }
 }
 
-function handleDeleteCategory($userId) {
+/**
+ * Handle DELETE request to remove a category
+ *
+ * @param int $userId The authenticated user's ID
+ * @param Auth $auth The authentication instance for logging
+ * @return void Outputs JSON response
+ */
+function handleDeleteCategory($userId, $auth) {
     try {
         $db = new Database();
         $conn = $db->getConnection();
 
-        $categoryId = $_GET['id'] ?? '';
+        $categoryId = trim($_GET['id'] ?? '');
 
-        if (empty($categoryId)) {
+        // Validate category ID
+        if (empty($categoryId) || !is_numeric($categoryId)) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Category ID is required']);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Valid category ID is required',
+                'error_code' => 'INVALID_ID'
+            ]);
             return;
         }
 
-        // Check if category belongs to user
-        $stmt = $conn->prepare("SELECT id FROM categories WHERE id = ? AND user_id = ?");
+        // Check if category exists and belongs to user
+        $stmt = $conn->prepare("SELECT id, name, type FROM categories WHERE id = ? AND user_id = ?");
         $stmt->execute([$categoryId, $userId]);
+        $category = $stmt->fetch();
 
-        if ($stmt->rowCount() == 0) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'Access denied']);
+        if (!$category) {
+            http_response_code(404);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Category not found or access denied',
+                'error_code' => 'CATEGORY_NOT_FOUND'
+            ]);
             return;
         }
 
-        // Check if category has transactions
-        $stmt = $conn->prepare("SELECT COUNT(*) as count FROM transactions WHERE category_id = ?");
-        $stmt->execute([$categoryId]);
+        // Check if category has transactions (with user ownership validation)
+        $stmt = $conn->prepare("SELECT COUNT(*) as count FROM transactions WHERE category_id = ? AND user_id = ?");
+        $stmt->execute([$categoryId, $userId]);
         $result = $stmt->fetch();
 
         if ($result['count'] > 0) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Cannot delete category with existing transactions']);
+            http_response_code(409);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Cannot delete category that contains transactions. Please reassign or delete the transactions first.',
+                'error_code' => 'CATEGORY_HAS_TRANSACTIONS',
+                'transaction_count' => (int)$result['count']
+            ]);
             return;
         }
+
+        // Store category info for response before deletion
+        $categoryName = $category['name'];
+        $categoryType = $category['type'];
 
         // Delete category
         $stmt = $conn->prepare("DELETE FROM categories WHERE id = ? AND user_id = ?");
         $stmt->execute([$categoryId, $userId]);
 
+        // Verify deletion
+        if ($stmt->rowCount() === 0) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Failed to delete category',
+                'error_code' => 'DELETE_FAILED'
+            ]);
+            return;
+        }
+
         echo json_encode([
             'success' => true,
-            'message' => 'Category deleted successfully'
+            'message' => 'Category deleted successfully',
+            'data' => [
+                'id' => $categoryId,
+                'name' => $categoryName,
+                'type' => $categoryType
+            ]
         ]);
 
     } catch(PDOException $e) {
+        // Log the error for debugging
+        error_log("Database error in handleDeleteCategory: " . $e->getMessage());
+
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Unable to delete category. Please try again later.',
+            'error_code' => 'DATABASE_ERROR'
+        ]);
     }
 }
 ?>
