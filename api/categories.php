@@ -1,5 +1,5 @@
 
-gi<?php
+<?php
 /**
  * Categories API for B.E.N.T.A
  * Business Expense and Net Transaction Analyzer
