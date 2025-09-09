@@ -2,6 +2,21 @@
 /**
  * Utility Functions for B.E.N.T.A
  * Business Expense and Net Transaction Analyzer
+ *
+ * This class provides utility functions for financial calculations, data formatting,
+ * user settings management, and database operations used throughout the application.
+ *
+ * Features:
+ * - Currency formatting and conversion
+ * - Date formatting and validation
+ * - Financial calculations (income, expenses, net income)
+ * - Category-based transaction analysis
+ * - User settings management
+ * - Resource ownership validation
+ *
+ * @author B.E.N.T.A Development Team
+ * @version 1.0
+ * @since 2024
  */
 
 require_once 'config/db.php';
@@ -10,6 +25,9 @@ class Functions {
     private $db;
     private $conn;
 
+    /**
+     * Constructor - Initialize database connection
+     */
     public function __construct() {
         $this->db = new Database();
         $this->conn = $this->db->getConnection();
