@@ -13,6 +13,14 @@
  * - Input validation and sanitization
  * - User ownership validation
  * - Rate limiting considerations
+ *
+ * Error Handling:
+ * - All errors return JSON with success=false, message, and error_code
+ * - HTTP status codes: 200 (success), 400 (bad request), 401 (unauth), 403 (forbidden), 404 (not found), 409 (conflict), 500 (server error)
+ *
+ * @author B.E.N.T.A Development Team
+ * @version 1.0
+ * @since 2024
  */
 
 header('Content-Type: application/json');

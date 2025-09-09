@@ -2,6 +2,23 @@
 /**
  * Reports API for B.E.N.T.A
  * Business Expense and Net Transaction Analyzer
+ *
+ * This API provides financial reporting functionality including summary, monthly,
+ * category breakdown, and trend analysis reports.
+ *
+ * Security features:
+ * - Authentication required for all endpoints
+ * - User ownership validation for all data
+ * - Input validation and sanitization
+ * - Rate limiting considerations
+ *
+ * Error Handling:
+ * - All errors return JSON with success=false, message, and error_code
+ * - HTTP status codes: 200 (success), 400 (bad request), 401 (unauth), 500 (server error)
+ *
+ * @author B.E.N.T.A Development Team
+ * @version 1.0
+ * @since 2024
  */
 
 header('Content-Type: application/json');
@@ -18,17 +35,36 @@ $functions = new Functions();
 // Check authentication
 if (!$auth->isLoggedIn()) {
     http_response_code(401);
-    echo json_encode(['success' => false, 'message' => 'Authentication required']);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Authentication required',
+        'error_code' => 'AUTH_REQUIRED'
+    ]);
     exit;
 }
 
 $user = $auth->getCurrentUser();
+if (!$user) {
+    http_response_code(401);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Invalid user session',
+        'error_code' => 'INVALID_SESSION'
+    ]);
+    exit;
+}
+
 $userId = $user['id'];
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method !== 'GET') {
     http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+    echo json_encode([
+        'success' => false,
+        'message' => 'HTTP method not allowed',
+        'error_code' => 'METHOD_NOT_ALLOWED',
+        'allowed_methods' => ['GET']
+    ]);
     exit;
 }
 
