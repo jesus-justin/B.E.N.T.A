@@ -1,4 +1,4 @@
-# B.E.N.T.A - Business Expense and Net Transaction Analyzer
+3""# B.E.N.T.A - Business Expense and Net Transaction Analyzer
 
 A comprehensive web-based financial management system for tracking business expenses, income, and generating insightful reports.
 
@@ -178,10 +178,10 @@ B.E.N.T.A/
 1. Navigate to the Transactions page
 2. Click "Add Transaction"
 3. Fill in the transaction details:
-   - Amount
-   - Description
+   - Amount (positive number)
+   - Description (optional)
    - Category (choose from existing or create new)
-   - Date
+   - Date (YYYY-MM-DD format)
    - Type (Income or Expense)
 
 ### Managing Categories
