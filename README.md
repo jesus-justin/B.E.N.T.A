@@ -36,30 +36,63 @@ A comprehensive web-based financial management system for tracking business expe
 ## Installation
 
 ### Prerequisites
-- XAMPP or similar PHP development environment
-- MySQL database
+- XAMPP (recommended) or similar PHP development environment
+- MySQL 5.7+ or MariaDB 10.0+
+- PHP 7.4 or higher
 - Web browser (Chrome, Firefox, Safari, Edge)
 
-### Setup Steps
+### Quick Setup Steps
 
-1. **Clone or Download the Project**
+1. **Download and Extract**
    ```
-   Place the B.E.N.T.A folder in your XAMPP htdocs directory
+   Download the B.E.N.T.A project files
+   Extract to: C:\xampp\htdocs\B.E.N.T.A
    ```
 
-2. **Database Setup**
-   - Start XAMPP and ensure Apache and MySQL are running
-   - Open phpMyAdmin (http://localhost/phpmyadmin)
-   - Create a new database named `benta`
-   - Import the `schema.sql` file to create the database structure
+2. **Start XAMPP Services**
+   - Open XAMPP Control Panel
+   - Start Apache and MySQL services
+   - Ensure both show green status
 
-3. **Configuration**
-   - Update database credentials in `config/db.php` if needed
-   - Default configuration should work with XAMPP defaults
+3. **Database Setup**
+   - Open browser and go to: `http://localhost/phpmyadmin`
+   - Create new database: `benta_db` (important: use this exact name)
+   - Select the `benta_db` database
+   - Click "Import" tab
+   - Choose `schema.sql` file from your project folder
+   - Click "Go" to import the database structure
 
-4. **Access the Application**
-   - Open your browser and navigate to: `http://localhost/B.E.N.T.A`
-   - Register a new account or login with existing credentials
+4. **Verify Configuration**
+   - Check `config/db.php` - should use default XAMPP settings:
+     - Host: localhost
+     - Database: benta_db
+     - Username: root
+     - Password: (empty)
+
+5. **Access the Application**
+   - Open browser: `http://localhost/B.E.N.T.A`
+   - Click "Register" to create your first account
+   - Login with your credentials
+
+### Troubleshooting
+
+**Page Stuck Loading:**
+- Ensure MySQL service is running in XAMPP
+- Check if database `benta_db` exists in phpMyAdmin
+- Verify all tables were created from schema.sql
+
+**Database Connection Error:**
+- Confirm MySQL is running (green in XAMPP)
+- Check database name matches in config/db.php
+- Try accessing phpMyAdmin directly
+
+**Permission Errors:**
+- Ensure XAMPP is run as Administrator
+- Check file permissions in htdocs folder
+
+**PHP Errors:**
+- Check XAMPP Apache error logs
+- Ensure PHP extensions are enabled (PDO, MySQLi)
 
 ## Database Schema
 
