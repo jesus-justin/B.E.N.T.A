@@ -1,8 +1,10 @@
-t# B.E.N.T.A Code Fixes and Enhancements Plan
+# B.E.N.T.A Code Fixes and Enhancements Plan
 
 ## Database Setup
 - [x] Create database schema (schema.sql)
 - [x] Create database configuration (config/db.php)
+- [ ] Add database indexes for performance optimization
+  - [ ] Analyze slow queries and add indexes as needed in categories, reports, settings tables
 
 ## Backend Development
 - [x] Implement authentication functions (includes/auth.php)
@@ -13,6 +15,17 @@ t# B.E.N.T.A Code Fixes and Enhancements Plan
 - [x] Build category management (api/categories.php)
 - [x] Create reports API (api/reports.php)
 - [x] Build settings API (api/settings.php)
+- [ ] Integrate logging utility (includes/logger.php) into all API endpoints
+  - [ ] Add error logging to categories.php, reports.php, settings.php, transactions.php, login.php, register.php
+  - [ ] Add security event logging for authentication and critical actions
+- [ ] Implement and apply middleware for input sanitization and validation (includes/middleware.php)
+  - [ ] Apply middleware to all API endpoints for consistent request validation
+- [ ] Implement rate limiting middleware (includes/rate_limiter.php)
+  - [ ] Apply rate limiting to all API endpoints to prevent abuse
+- [ ] Refactor and optimize database queries for performance
+  - [ ] Review and optimize queries in categories.php
+  - [ ] Review and optimize queries in reports.php
+  - [ ] Review and optimize queries in settings.php
 
 ## Frontend Development
 - [x] Create login page (login.php)
@@ -21,6 +34,10 @@ t# B.E.N.T.A Code Fixes and Enhancements Plan
 - [x] Create transactions page (transactions.php)
 - [x] Build reports page (reports.php)
 - [x] Create settings page (settings.php)
+- [ ] Optimize frontend performance and accessibility
+  - [ ] Review and optimize JavaScript files (assets/js/main.js, assets/js/animations.js)
+  - [ ] Add accessibility improvements (ARIA roles, keyboard navigation, color contrast)
+  - [ ] Optimize CSS for performance and responsiveness (assets/css/style.css)
 
 ## Styling & Animations
 - [x] Create main stylesheet (assets/css/style.css)
@@ -36,11 +53,6 @@ t# B.E.N.T.A Code Fixes and Enhancements Plan
   - [ ] Add detailed error messages and consistent error handling in categories.php
   - [ ] Add detailed error messages and consistent error handling in reports.php
   - [ ] Add detailed error messages and consistent error handling in settings.php
-- [ ] Refactor and optimize database queries for performance
-  - [ ] Review and optimize queries in categories.php
-  - [ ] Review and optimize queries in reports.php
-  - [ ] Review and optimize queries in settings.php
-  - [ ] Add database indexes if needed
 - [ ] Add comprehensive comments and documentation
   - [ ] Add detailed comments to api/categories.php
   - [ ] Add detailed comments to api/reports.php
@@ -63,10 +75,6 @@ t# B.E.N.T.A Code Fixes and Enhancements Plan
   - [ ] Create input sanitization middleware
   - [ ] Create validation middleware
   - [ ] Apply middleware to all API endpoints
-- [ ] Optimize frontend performance and accessibility
-  - [ ] Review and optimize JavaScript files
-  - [ ] Add accessibility improvements
-  - [ ] Optimize CSS for performance
 - [ ] Add unit tests for critical functions
   - [ ] Create test framework setup
   - [ ] Add tests for Auth class methods
